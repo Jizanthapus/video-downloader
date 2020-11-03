@@ -5,25 +5,43 @@ const Path = require('path')
 const Axios = require('axios').default
 const ProgressBar = require('progress')
 const Url = require('url');
-var csv = require('csv');
+const parse = require('csv-parse/lib/sync');
 
 // get args
 var myArgs = process.argv.slice(2);
-if (myArgs.length < 2) {
+if (myArgs.length < 1) {
   throw 'NotEnoughArgs'
 }
 
-// setup csv parser
-var parser = csv.parse({columns: true}, function (err, records) {
-	console.log(records);
-});
+// get time
+const now = Date.now()
 
-// pipe file into csv parser
-Fs.createReadStream(__dirname+'/MSG Downloads.csv').pipe(parser);
+// csv parser
+const linkFile = Fs.readFileSync(__dirname+'/links.csv')
+const episodes = parse(linkFile, {
+  columns: true,
+  skip_empty_lines: true
+})
+// console.log(episodes)
+
+for (var ep of episodes) {
+  console.log(ep['URL'])
+  const epUrl = new URL(ep['URL'])
+
+  // make sure link is current
+  const expiry = new Date(epUrl.searchParams.get('expires') * 1000)
+  console.log(expiry)
+  if (now > expiry) throw 'LinkIsOld' // TODO make new csv for files with old links
+
+  // get file name
+  var epFile = epUrl.pathname.substring(epUrl.pathname.lastIndexOf('/') + 1)
+  console.log(epFile)
+  var fileType = epFile.substring(epFile.lastIndexOf('.') + 1)
+  console.log(fileType)
+}
 
 async function downloadImage () {  
   const url = new URL('https://cdn7.cloud9xx.com/user1342/ffac3a84fe7ad0e83052eb9724d0328f/EP.1.720p.mp4?token=n0Pp6FKUkhzNxV7u_0yp-w&expires=1604395489&id=78966');
-  // TODO check to see if link is expired before downloading
 
   console.log('Connecting …')
   const { data, headers } = await Axios({
